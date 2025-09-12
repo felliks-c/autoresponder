@@ -2,6 +2,10 @@
 from fastapi import FastAPI
 from app.api.routers import auth, messages, sessions
 from app.core.logging import setup_logging
+from concurrent.futures import ProcessPoolExecutor
+
+
+executor = ProcessPoolExecutor()
 
 def get_app() -> FastAPI:
     setup_logging()

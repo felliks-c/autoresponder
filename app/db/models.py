@@ -1,18 +1,20 @@
 from sqlmodel import SQLModel, Field
 from typing import Optional
+from pydantic import BaseModel
+from typing import Optional
+
+
+
 
 class User(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(index=True)
-    email: str = Field(unique=True)
-    age: int = Field(default=0)
+    id: int = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, nullable=False)
+    hashed_password: str
+    is_active: bool = Field(default=True)
 
 
 
 
-
-
-from pydantic import BaseModel
 
 class CacheItem(BaseModel):
     key: str
@@ -22,15 +24,6 @@ class CacheItem(BaseModel):
 
 
 
-
-
-
-
-
-
-
-from pydantic import BaseModel
-from typing import Optional
 
 class UserDocument(BaseModel):
     id: Optional[str] = None  # MongoDB использует _id

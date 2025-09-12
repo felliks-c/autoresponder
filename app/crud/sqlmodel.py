@@ -1,9 +1,36 @@
 from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
+from db.postgres import engine
+from db.models import User
 
-# Создать базу (один раз, при инициализации)
-async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+
+# Добавление
+async def create_user(session: AsyncSession, email: str, password: str):
+    user = User(email=email, hashed_password=password)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+# Получение
+async def get_user_by_email(session: AsyncSession, email: str):
+    result = await session.exec(select(User).where(User.email == email))
+    return result.first()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # CRUD-функции (используйте в async-контексте, например, в FastAPI с depends(get_session))
 async def create_user(session: AsyncSession, user: User):

@@ -3,6 +3,10 @@ import torch  # Для cosine similarity и GPU
 from .intents import default_responses
 from .embeddings import intent_embeddings, response_embeddings
 from .embeddings import generate_embeddings, intent_datasets, default_responses
+from main import executor
+import random
+import asyncio
+from concurrent.futures import ProcessPoolExecutor
 
 
 # Шаг 1: Подготовка датасетов (маленькие наборы примеров для каждого интента)
@@ -68,11 +72,25 @@ def classify_and_respond(user_input):
 
 
 # Примеры использования
-user_question = "Ты не знаешь о погоде?"
-intent, response = classify_and_respond(user_question)
-print(f"Классифицировано как: {intent}")
-print(f"Ответ: {response}\n")
+# user_question = "Ты не знаешь о погоде?"
+# intent, response = classify_and_respond(user_question)
+# print(f"Классифицировано как: {intent}")
+# print(f"Ответ: {response}\n")
 
-async def nlp_pipeline(user_input: str) -> str:
-    intent, response = classify_and_respond(user_input)
+# async def nlp_pipeline(user_input: str) -> str:
+#     intent, response = classify_and_respond(user_input)
+#     return response
+
+
+
+
+async def nlp_pipeline_multi(user_input: str) -> str:
+    # Запускаем синхронную функцию в пуле процессов
+    # Это не блокирует event loop
+    loop = asyncio.get_running_loop()
+    intent, response = await loop.run_in_executor(
+        executor,
+        classify_and_respond,  # Функция, которую нужно запустить
+        user_input                 # Аргументы для функции
+    )
     return response
