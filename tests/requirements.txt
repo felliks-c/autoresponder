@@ -1,0 +1,30 @@
+# FastAPI и ASGI
+fastapi==0.111.0
+uvicorn[standard]==0.25.0
+
+# SQL и ORM
+sqlmodel==0.0.8
+sqlalchemy[asyncio]==2.1.0
+asyncpg==1.0.0
+
+# MongoDB
+motor==3.1.1
+bson==0.5.10
+
+# Redis
+redis[asyncio]==5.3.0
+
+# NLP (если используешь свои пакеты, можно добавить сюда)
+# Например, transformers или sentence-transformers
+# transformers==4.40.0
+# sentence-transformers==2.2.2
+
+# Тестирование
+pytest==8.4.0
+pytest-asyncio==0.21.0
+httpx==0.26.0
+pytest-cov==4.2.2
+asynctest==0.13.0
+
+# Моки и патчи
+pytest-mock==4.0.0
