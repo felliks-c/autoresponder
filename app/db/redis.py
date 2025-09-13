@@ -1,12 +1,9 @@
-import redis.asyncio as aioredis
+import redis.asyncio as redis
+from core.config import settings
 
-# Шаблонный URL подключения (замените host, port, password)
-REDIS_URL = "redis://:password@host:6379/0"
-
-# Создание пула соединений (для переиспользования)
-async def get_redis():
-    redis = aioredis.from_url(REDIS_URL, encoding="utf-8", decode_responses=True)
-    try:
-        yield redis
-    finally:
-        await redis.close()
+redis_client = redis.Redis(
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    db=0,
+    decode_responses=True
+)

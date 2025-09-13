@@ -1,27 +1,13 @@
-from sqlmodel import SQLModel, create_engine
-from sqlmodel.ext.asyncio.session import AsyncSession, AsyncEngine
-from sqlmodel import select
-from core.config import POSTGRES_DSN as DATABASE_URL
+from sqlmodel import SQLModel
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from core.config import settings
 
+from .models import User, RefreshToken
 
-# Создание асинхронного engine
-engine = create_engine(DATABASE_URL, echo=True, future=True)  # echo=True для логирования запросов
+engine = create_async_engine(settings.DATABASE_URL, echo=True)
+async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-
-# Создать базу (один раз, при инициализации)
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-
-
-# Функция для получения сессии (для Dependency Injection в FastAPI)
-async def get_session():
-    async_session = AsyncSession(engine)
-    try:
-        yield async_session
-        await async_session.commit()
-    except Exception:
-        await async_session.rollback()
-        raise
-    finally:
-        await async_session.close()

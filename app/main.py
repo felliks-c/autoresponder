@@ -1,18 +1,28 @@
-# app/main.py
 from fastapi import FastAPI
-from app.api.routers import auth, messages, sessions
-from app.core.logging import setup_logging
-from concurrent.futures import ProcessPoolExecutor
+from api.routers import session_router, message_router, auth_router
+from db.postgres import init_db
+from db.mongo import mongo_client
+from db.redis import redis_client
+
+app = FastAPI(title="AsyncApp", version="1.0")
 
 
-executor = ProcessPoolExecutor()
 
-def get_app() -> FastAPI:
-    setup_logging()
-    app = FastAPI(title="Async NLP Microservice", version="0.1.0")
-    app.include_router(auth.router, prefix="/auth", tags=["auth"])
-    app.include_router(messages.router, prefix="/message", tags=["messages"])
-    app.include_router(sessions.router, prefix="/session", tags=["sessions"])
-    return app
 
-app = get_app()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await init_db()
+    await mongo_client.admin.command("ping")
+    await redis_client.ping()
+
+    yield
+    # Shutdown
+    mongo_client.close()
+    await redis_client.close()
+
+
+
+app.include_router(auth_router)
+app.include_router(message_router)
+app.include_router(session_router)

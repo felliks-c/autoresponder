@@ -1,15 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient
+from core.config import settings
 
-# Шаблонный URL подключения (замените user, password, host)
-MONGO_URL = "mongodb://user:password@host:27017/db_name?authSource=admin"
-
-# Создание клиента
-client = AsyncIOMotorClient(MONGO_URL)
-db = client["db_name"]  # Имя вашей БД
-
-# Функция для получения БД (для Dependency Injection)
-async def get_mongo_db():
-    try:
-        yield db
-    finally:
-        pass  # Motor не требует явного закрытия
+mongo_client = AsyncIOMotorClient(settings.MONGO_URL)
+mongo_db = mongo_client[settings.MONGO_DB]
+messages_collection = mongo_db["messages"]

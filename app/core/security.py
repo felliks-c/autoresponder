@@ -1,29 +1,37 @@
-# app/core/security.py
-import time, uuid, jwt
-from fastapi import HTTPException, status, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from app.core.config import settings
-from app.db.redis import get_redis
+from datetime import datetime, timedelta
+from jose import jwt, JWTError
+from core.config import settings
+from passlib.context import CryptContext
 
-bearer = HTTPBearer(auto_error=True)
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
-def create_access_token(user_id: int) -> dict:
-    jti = str(uuid.uuid4())
-    now = int(time.time())
-    exp = now + settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    payload = {"sub": str(user_id), "jti": jti, "exp": exp, "iat": now}
-    token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALG)
-    return {"access_token": token, "jti": jti, "exp": exp}
+def create_refresh_token(data: dict):
+    expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode = {**data, "exp": expire}
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
-async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
+def decode_token(token: str):
     try:
-        payload = jwt.decode(creds.credentials, settings.SECRET_KEY, algorithms=[settings.JWT_ALG])
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    jti = payload.get("jti")
-    if not jti:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    r = await get_redis()
-    if not await r.exists(f"session:{jti}"):
-        raise HTTPException(status_code=401, detail="Session expired")
-    return int(payload["sub"]), jti
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError:
+        return None
+
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password: str) -> str:
+    """
+    Хеширует plain password и возвращает хэш.
+    """
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Проверяет plain_password против hashed_password.
+    """
+    return pwd_context.verify(plain_password, hashed_password)

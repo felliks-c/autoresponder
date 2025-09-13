@@ -1,72 +1,29 @@
+from db.models import User, RefreshToken
 from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
-from db.postgres import engine
-from db.models import User
+from db.postgres import async_session_maker
 
-
-# Добавление
-async def create_user(session: AsyncSession, email: str, password: str):
-    user = User(email=email, hashed_password=password)
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-    return user
-
-# Получение
-async def get_user_by_email(session: AsyncSession, email: str):
-    result = await session.exec(select(User).where(User.email == email))
-    return result.first()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# CRUD-функции (используйте в async-контексте, например, в FastAPI с depends(get_session))
-async def create_user(session: AsyncSession, user: User):
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-    return user
-
-async def read_user(session: AsyncSession, user_id: int):
-    query = select(User).where(User.id == user_id)
-    result = await session.exec(query)
-    return result.first()
-
-async def update_user(session: AsyncSession, user_id: int, name: str, age: int):
-    user = await read_user(session, user_id)
-    if user:
-        user.name = name
-        user.age = age
+async def create_user(email: str, hashed_password: str):
+    async with async_session_maker() as session:
+        user = User(email=email, hashed_password=hashed_password)
+        session.add(user)
         await session.commit()
         await session.refresh(user)
         return user
-    return None
 
-async def delete_user(session: AsyncSession, user_id: int):
-    user = await read_user(session, user_id)
-    if user:
-        await session.delete(user)
+async def get_user_by_email(email: str):
+    async with async_session_maker() as session:
+        result = await session.exec(select(User).where(User.email == email))
+        return result.first()
+
+async def save_refresh_token(user_id: int, token: str):
+    async with async_session_maker() as session:
+        refresh = RefreshToken(user_id=user_id, token=token)
+        session.add(refresh)
         await session.commit()
-        return True
-    return False
+        return refresh
 
-# Пример использования в FastAPI
-from fastapi import FastAPI, Depends
-
-app = FastAPI()
-
-@app.post("/users/")
-async def add_user(user: User, session: AsyncSession = Depends(get_session)):
-    return await create_user(session, user)
+async def get_user_id_by_refresh_token(token: str):
+    async with async_session_maker() as session:
+        result = await session.exec(select(RefreshToken).where(RefreshToken.token == token))
+        refresh = result.first()
+        return refresh.user_id if refresh else None

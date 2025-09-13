@@ -1,49 +1,45 @@
-import json
+from typing import Optional
+from db.redis import redis_client
 
-# CRUD для простых ключей (строки/JSON)
-async def create_key(redis: aioredis.Redis, key: str, value: str, ttl: int = None):
-    await redis.set(key, value)
-    if ttl:
-        await redis.expire(key, ttl)
-    return True
 
-async def read_key(redis: aioredis.Redis, key: str):
-    return await redis.get(key)
+SESSION_EXPIRE_SECONDS = 60 * 60  # 60 минут
 
-async def update_key(redis: aioredis.Redis, key: str, value: str, ttl: int = None):
-    return await create_key(redis, key, value, ttl)  # Update = перезапись
 
-async def delete_key(redis: aioredis.Redis, key: str):
-    return await redis.delete(key) > 0
+# Создать сессию (сохранить токен → user_id)
+async def create_session(token: str, user_id: str) -> bool:
+    """
+    Создает запись в Redis вида: token -> user_id
+    Живет 60 минут.
+    """
+    result = await redis_client.set(
+        token,
+        user_id,
+        ex=SESSION_EXPIRE_SECONDS
+    )
+    return result is True  # вернет True если ок
 
-# CRUD для хэшей (аналог объекта с полями)
-async def create_hash(redis: aioredis.Redis, hash_key: str, field: str, value: str):
-    await redis.hset(hash_key, field, value)
-    return True
 
-async def read_hash(redis: aioredis.Redis, hash_key: str, field: str = None):
-    if field:
-        return await redis.hget(hash_key, field)
-    return await redis.hgetall(hash_key)
+# Получить user_id по токену
+async def get_user_by_token(token: str) -> Optional[str]:
+    """
+    Возвращает user_id по токену, если сессия существует.
+    """
+    return await redis_client.get(token)
 
-async def update_hash(redis: aioredis.Redis, hash_key: str, field: str, value: str):
-    return await create_hash(redis, hash_key, field, value)
 
-async def delete_hash_field(redis: aioredis.Redis, hash_key: str, field: str):
-    return await redis.hdel(hash_key, field) > 0
+# Удалить сессию по токену (логаут)
+async def delete_session(token: str) -> bool:
+    """
+    Удаляет запись token -> user_id.
+    """
+    result = await redis_client.delete(token)
+    return result == 1  # 1 если удалилось, 0 если не было
 
-# Пример с JSON (используя Pydantic для валидации)
-async def create_json(redis: aioredis.Redis, key: str, data: dict):
-    validated = CacheItem(**data)  # Валидация
-    await redis.set(key, json.dumps(validated.dict()))
-    return True
 
-# Пример в FastAPI
-from fastapi import FastAPI, Depends
-
-app = FastAPI()
-
-@app.post("/cache/{key}")
-async def add_cache(key: str, value: str, redis: aioredis.Redis = Depends(get_redis)):
-    await create_key(redis, key, value)
-    return {"status": "ok"}
+# Обновить TTL у сессии (продлить жизнь токена)
+async def refresh_session(token: str) -> bool:
+    """
+    Обновляет TTL на 60 минут.
+    """
+    result = await redis_client.expire(token, SESSION_EXPIRE_SECONDS)
+    return result is True

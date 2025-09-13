@@ -84,7 +84,7 @@ def classify_and_respond(user_input):
 
 
 
-async def nlp_pipeline_multi(user_input: str) -> str:
+async def nlp_pipeline(user_input: str) -> str:
     # Запускаем синхронную функцию в пуле процессов
     # Это не блокирует event loop
     loop = asyncio.get_running_loop()
@@ -93,4 +93,4 @@ async def nlp_pipeline_multi(user_input: str) -> str:
         classify_and_respond,  # Функция, которую нужно запустить
         user_input                 # Аргументы для функции
     )
-    return response
+    return response, intent

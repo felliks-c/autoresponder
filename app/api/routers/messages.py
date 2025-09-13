@@ -1,35 +1,57 @@
-# app/api/routers/messages.py
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
-from datetime import datetime
-from app.api.deps import get_nlp, get_mongo
-from app.core.security import get_current_user
-from app.db.postgres import get_session
-from app.db.models import MessageHistory
+from fastapi import APIRouter, Depends, HTTPException, Header
+from typing import Optional
 
-router = APIRouter()
+from crud.motor import create_message
+from crud.redis import get_user_by_token
+from crud.sqlmodel import get_user_id_by_refresh_token
+from nlp.pipeline import nlp_pipeline
 
-class MessageIn(BaseModel):
-    text: str
+router = APIRouter(prefix="/messages", tags=["messages"])
+
 
 @router.post("/send")
-async def send_message(body: MessageIn, user=Depends(get_current_user), nlp=Depends(get_nlp), mongo=Depends(get_mongo)):
-    user_id, _ = user
-    # лог сырого в Mongo
-    await mongo.raw_messages.insert_one({"user_id": user_id, "text": body.text, "created_at": datetime.utcnow()})
+async def add_message(
+    text: str,
+    authorization: Optional[str] = Header(None)  # токен будем брать из заголовка Authorization
+):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token required")
 
-    intent, conf = nlp.classify(body.text)
-    resp = nlp.respond(intent)
+    # Обычно токен приходит в формате "Bearer <token>"
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid Authorization header format")
 
-    # сохранить историю в Postgres
-    async with get_session() as s:
-        s.add(MessageHistory(user_id=user_id, text=body.text, intent=intent, response=resp))
-        await s.commit()
+    token = parts[1]
 
-    # если unknown — лог в Mongo
-    if intent == "unknown":
-        await mongo.unknown_logs.insert_one({"user_id": user_id, "text": body.text, "reason": "no_match", "created_at": datetime.utcnow()})
-    else:
-        await mongo.classified_intents.insert_one({"user_id": user_id, "text": body.text, "intent": intent, "confidence": conf, "created_at": datetime.utcnow()})
+    # 1. Пробуем найти user_id по access token в Redis
+    user_id = await get_user_by_token(token)
 
-    return {"intent": intent, "response": resp}
+    # 2. Если не нашли — пробуем refresh token в Postgres
+    if not user_id:
+        user_id = await get_user_id_by_refresh_token(token)
+
+    # 3. Если всё ещё нет — отказ
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Access denied. Please re-login or use a refresh token."
+        )
+
+    # 4. Пропускаем через NLP пайплайн
+    response, typ = await nlp_pipeline(text)
+
+    # 5. Логируем сообщение в MongoDB
+    await create_message(
+        user_id=str(user_id),
+        text=text,
+        typ=typ,
+        response=response,
+        status="saved"
+    )
+
+    # 6. Возвращаем ответ пользователю
+    return {"response": response}
+
+
+
