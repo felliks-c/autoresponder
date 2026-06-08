@@ -1,21 +1,38 @@
-version: "3.9"
 services:
   api:
-    build: .
+    build:
+      context: ./app
+      dockerfile: Dockerfile
     env_file: .env
     depends_on: [postgres, mongo, redis]
-    command: gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:8000
     ports: ["8000:8000"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    ports: ["3000:80"]
+    depends_on: [api]
+
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_PASSWORD: pass
-      POSTGRES_USER: user
+      POSTGRES_PASSWORD: 11111111
+      POSTGRES_USER: myuser
       POSTGRES_DB: appdb
     ports: ["5432:5432"]
+
   mongo:
     image: mongo:6
     ports: ["27017:27017"]
+
   redis:
     image: redis:7
     ports: ["6379:6379"]

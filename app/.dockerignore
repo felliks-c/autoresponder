@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env*
+*.log
+*.sqlite
+*.sqlite3
+.DS_Store
+.idea/
+.vscode/
+nlp/embeddings.json

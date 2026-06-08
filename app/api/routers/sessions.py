@@ -6,14 +6,6 @@ router = APIRouter(prefix="/session", tags=["session"])
 
 
 @router.get("/history")
-async def list_messages(user=Depends(get_current_user)):
-    """
-    История сообщений текущего пользователя
-    """
-    user_id = str(user.id)  # приводим к str, чтобы совпадало с Mongo user_id
+async def list_messages(user_id: str = Depends(get_current_user)):
     messages = await get_user_messages(user_id)
-
-    return {
-        "user_id": user_id,
-        "history": messages
-    }
+    return {"user_id": user_id, "history": messages}

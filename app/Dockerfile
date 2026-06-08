@@ -1,10 +1,10 @@
-FROM python:3.10-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir --upgrade -r requirements.txt || cat /root/.pip/pip.log
+RUN pip install --no-cache-dir --timeout 300 --retries 5 -r requirements.txt
 
 
 COPY . .
